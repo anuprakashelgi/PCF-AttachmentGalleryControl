@@ -9,13 +9,14 @@
     "start": "pcf-scripts start"
   },
   "dependencies": {
-    "@types/node": "^10.14.15",
+    "@types/node": "^10.17.0",
     "@types/powerapps-component-framework": "1.1.0",
-    "file-saver": "^2.0.2"
+    "file-saver": "^2.0.2",
+    "office-ui-fabric-react": "^7.55.1"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.1",
-    "pcf-scripts": "^0.3.4",
-    "pcf-start": "^0.3.4"
+    "pcf-scripts": "^1",
+    "pcf-start": "^1"
   }
 }

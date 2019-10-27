@@ -1,7 +1,12 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
-//import { img1, img2 } from "./demoImages";
+import * as React from 'react';
+import * as ReactDOM from 'react-dom';
+import { img1, img2 } from "./demoImages";
 //import {pdf2} from './demoPdf2';
 import { saveAs } from 'file-saver';
+import { Preview } from "./Preview";
+import { IAttachment} from "./interfaces/IAttachment";
+import { throws } from "assert";
 
 interface Attachment {
 	documentBody: string;
@@ -21,6 +26,11 @@ interface IPdfState {
 	pdf: any,
 	currentPage: number,
 	zoom: number
+}
+
+interface IMainProps {
+    notes: IAttachment[];
+    loading: boolean;
 }
 
 export class AttachmentGalleryControl implements ComponentFramework.StandardControl<IInputs, IOutputs> {
@@ -48,6 +58,8 @@ export class AttachmentGalleryControl implements ComponentFramework.StandardCont
 	private pdfImageSrc: string;
 	private _mainDivContainer: HTMLDivElement;
 	private _notFoundContainer: HTMLDivElement;
+
+	private _mainProps: IMainProps;
 
 	/**
 	 * Empty constructor.
@@ -100,321 +112,354 @@ export class AttachmentGalleryControl implements ComponentFramework.StandardCont
 		}
 
 		this._container = document.createElement('div');
-
-		//--------- Attachments not found placeholder
-		let notFoundContainer = document.createElement('div');
-
-		let refreshIcon = document.createElement('i');
-		refreshIcon.className = 'dwc-top-right ms-Icon ms-Icon--Refresh';
-
-		notFoundContainer.appendChild(refreshIcon);
-
-		let notFoundText = document.createElement('p');
-		notFoundText.classList.add('dwc-center');
-		notFoundText.innerText = 'Attachments not found. Press Refresh to try to load them again.';
-
-		notFoundContainer.appendChild(notFoundText);
-
-		this._container.appendChild(notFoundContainer);
-
-		let mainContainer = document.createElement('div');
-		mainContainer.classList.add('main-container','dwc-hide');
-
-		this._mainDivContainer = mainContainer;
-
-		//-------- creating thumbnails
-		this._thumbnailsGallery = document.createElement("div");
-		this._thumbnailsGallery.classList.add('thumbnailsList');
-
-		//-------- creating preview section
-		let bigPreview = document.createElement("div");
-		bigPreview.classList.add('preview-section');
-
-		this._previewImg = document.createElement('img');
-		this._previewImg.classList.add('preview-img');
-		this._previewImg.onclick = () => this.openModal();
-		bigPreview.appendChild(this._previewImg);
-
-		//-------- prev and next buttons
-		let next = document.createElement('a');
-		next.classList.add('arrow-button', 'preview-next');
-		next.innerHTML = "&#10095;";
-		next.onclick = () => this.changeImage(1);
-
-		let prev = document.createElement('a');
-		prev.classList.add('arrow-button', 'preview-prev');
-		prev.innerHTML = "&#10094;";
-		prev.onclick = () => this.changeImage(-1);
-
-		bigPreview.appendChild(prev);
-		bigPreview.appendChild(next);
-
-		mainContainer.appendChild(bigPreview);
-		mainContainer.appendChild(this._thumbnailsGallery);
-
-		this._container.appendChild(mainContainer);
+		this._container.className = "main-container";
 
 		container.appendChild(this._container);
 
-		//--------- create modal
-
-		this._modalContainer = document.createElement('div');
-		this._modalContainer.classList.add('dwc-modal');
-
-		let modalContent = document.createElement('div');
-		modalContent.classList.add('dwc-modal-content');
-
-		this._modalContentContainer = modalContent;
-
-		//--------- create modal header
-		let modalHeader = document.createElement('div');
-		modalHeader.classList.add('dwc-modal-header');
-
-		//--------- create pdf controls
-		let pdfControlsContainer = document.createElement('div');
-
-		pdfControlsContainer.classList.add('dwc-flex-container', 'dwc-pageinput-container', 'dwc-hide');
-
-		let prevPdfPageIcon = document.createElement('i');
-		prevPdfPageIcon.className = "header-icon ms-Icon ms-Icon--ChevronLeft";
-		prevPdfPageIcon.addEventListener('click', () => this.changePdfPage(-1));
-
-		pdfControlsContainer.appendChild(prevPdfPageIcon);
-
-		let pdfPageNumberContainer = document.createElement('div');
-
-		let pdfPageInput = document.createElement('input');
-		pdfPageInput.value = '1';
-		pdfPageInput.className = 'dwc-page-input';
-		pdfPageInput.addEventListener('keypress', (e) => this.setPdfPage(e));
-
-		pdfPageNumberContainer.appendChild(pdfPageInput);
-
-		this._pdfPageInput = pdfPageInput;
-
-		let totalPagesSpan = document.createElement('span');
-		totalPagesSpan.innerHTML = " / 0";
-		totalPagesSpan.className = 'dwc-page-span';
-
-		pdfPageNumberContainer.appendChild(totalPagesSpan);
-
-		this._pdfTotalPages = totalPagesSpan;
-
-		pdfControlsContainer.appendChild(pdfPageNumberContainer);
-
-		let nextPdfPageIcon = document.createElement('i');
-		nextPdfPageIcon.className = "header-icon ms-Icon ms-Icon--ChevronRight";
-		nextPdfPageIcon.addEventListener('click', () => this.changePdfPage(1));
-
-		pdfControlsContainer.appendChild(nextPdfPageIcon);
-
-		let zoomControlsContainer = document.createElement('div');
-		zoomControlsContainer.className = 'dwc-zoom-container';
-
-		let zoomText = document.createElement('span');
-		zoomText.style.color = 'white';
-		zoomText.innerHTML = 'Zoom: ';
-
-		let plusIcon = document.createElement('i');
-		plusIcon.className = "header-icon dwc-side-margin-4 ms-Icon ms-Icon--Add";
-		plusIcon.addEventListener('click', () => this.zoomPdfPage(0.2));
-
-		let minusIcon = document.createElement('i');
-		minusIcon.className = "header-icon dwc-side-margin-4 ms-Icon ms-Icon--Remove";
-		minusIcon.addEventListener('click', () => this.zoomPdfPage(-0.2));
-
-		zoomControlsContainer.appendChild(zoomText);
-		zoomControlsContainer.appendChild(plusIcon);
-		zoomControlsContainer.appendChild(minusIcon);
-
-		pdfControlsContainer.appendChild(zoomControlsContainer);
-
-		this._pdfPageControlsContainer = pdfControlsContainer;
-
-		//---------- create modal buttons
-		let rightHeaderContainer = document.createElement('div');
-
-		rightHeaderContainer.classList.add("header-icon-container");
-
-		let downloadIcon = document.createElement('i');
-		downloadIcon.className = "header-icon ms-Icon ms-Icon--Download";
-		downloadIcon.addEventListener('click', this.downloadFile);
-
-		rightHeaderContainer.appendChild(downloadIcon);
-
-		let infoIcon = document.createElement('i');
-		infoIcon.className = "header-icon ms-Icon ms-Icon--Info";
-		infoIcon.addEventListener('click', this.toggleNoteColumn);
-
-		rightHeaderContainer.appendChild(infoIcon);
-
-		let closeIcon = document.createElement('i');
-		closeIcon.className = "header-icon ms-Icon ms-Icon--ChromeClose";
-		closeIcon.addEventListener('click', this.closeModal);
-
-		rightHeaderContainer.appendChild(closeIcon);
-
-		//--------- create modal header text
-		let leftHeaderContainer = document.createElement('div');
-
-		let headerText = document.createElement('h3');
-		headerText.innerHTML = "0/10";
-		this._modalHeaderText = headerText;
-
-		leftHeaderContainer.appendChild(headerText);
-
-		modalHeader.appendChild(leftHeaderContainer);
-		modalHeader.appendChild(pdfControlsContainer);
-		modalHeader.appendChild(rightHeaderContainer);
-
-		modalContent.appendChild(modalHeader);
-
-		//--------- create modal body
-
-		let modalBody = document.createElement('div');
-		modalBody.classList.add('dwc-modal-body');
-
-		//--------- add prev/next buttons
-
-		let nextImgModal = document.createElement('a');
-		nextImgModal.classList.add('arrow-button', 'preview-next');
-		nextImgModal.innerHTML = "&#10095;";
-		nextImgModal.onclick = () => this.changeImage(1);
-
-		let prevImgModal = document.createElement('a');
-		prevImgModal.classList.add('arrow-button', 'preview-prev');
-		prevImgModal.innerHTML = "&#10094;";
-		prevImgModal.onclick = () => this.changeImage(-1);
-
-		modalBody.appendChild(nextImgModal);
-		modalBody.appendChild(prevImgModal);
-
-		//--------- image container
-
-		let imageViewerContainer = document.createElement('div');
-		imageViewerContainer.className = 'dwc-flex-container';
-
-		this._imageViewerContainer = imageViewerContainer;
-
-		modalBody.appendChild(imageViewerContainer);
-
-		let modalImageContainer = document.createElement('div');
-		modalImageContainer.classList.add('dwc-modal-img-container');
-
-		this._modalImage = document.createElement('img');
-		this._modalImage.classList.add('dwc-modal-img');
-
-		modalImageContainer.appendChild(this._modalImage);
-		imageViewerContainer.appendChild(modalImageContainer);
-
-		this._modalImageContainer = modalImageContainer;
-
-		//-------- create preview note container
-
-		let modalNoteTextContainer = document.createElement('div');
-		modalNoteTextContainer.classList.add('dwc-modal-notetext-container', 'dwc-hide');
-
-		let noteText = document.createElement('p');
-		noteText.className = 'dwc-modal-notetext';
-		modalNoteTextContainer.appendChild(noteText);
-
-		this._noteText = noteText;
-		this._noteTextContainer = modalNoteTextContainer;
-
-		imageViewerContainer.appendChild(modalNoteTextContainer);
-
-		//--------- create pdf viewer container
-
-		let pdfViewerContainer = document.createElement('div');
-		pdfViewerContainer.classList.add('dwc-hide');
-
-		let canvasContainer = document.createElement('div');
-		canvasContainer.className = 'dwc-pdf-canvas-container';
-		canvasContainer.id = "canvas_container";
-
-		this._pdfCanvas = document.createElement('canvas');
-		this._pdfCanvas.id = "pdf_renderer";
-
-		canvasContainer.appendChild(this._pdfCanvas);
-
-		pdfViewerContainer.appendChild(canvasContainer);
-
-		modalBody.appendChild(pdfViewerContainer);
-
-		this._pdfViewerContainer = pdfViewerContainer;
-
-		modalContent.appendChild(modalBody);
-		this._modalContainer.appendChild(modalContent);
-
-		document.body.appendChild(this._modalContainer);
-
-		console.log("context", context);
-
-		let curentRecord: ComponentFramework.EntityReference = {
-			id: (<any>context).page.entityId,
-			name: (<any>context).page.entityTypeName
+		this._mainProps = {
+			notes: [],
+			loading: true
 		}
 
-		console.log("curentRecord", curentRecord);
+		ReactDOM.render(
+			// Create the React component
+			React.createElement(
+				Preview,
+				this._mainProps
+			),
+			this._container
+		);
 
-		const pdfScript = document.createElement('script');
-		pdfScript.src = 'https://unpkg.com/pdfjs-dist@latest/build/pdf.min.js';
+		this.GetAttachmentsDemo();
 
-		document.body.appendChild(pdfScript);
+		// //--------- Attachments not found placeholder
+		// let notFoundContainer = document.createElement('div');
 
-		this.GetAttachments(curentRecord).then(result => this.CreateGallery(result));
+		// let refreshIcon = document.createElement('i');
+		// refreshIcon.className = 'dwc-top-right ms-Icon ms-Icon--Refresh';
+
+		// notFoundContainer.appendChild(refreshIcon);
+
+		// let notFoundText = document.createElement('p');
+		// notFoundText.classList.add('dwc-center');
+		// notFoundText.innerText = 'Attachments not found. Press Refresh to try to load them again.';
+
+		// notFoundContainer.appendChild(notFoundText);
+
+		// this._container.appendChild(notFoundContainer);
+
+		// let mainContainer = document.createElement('div');
+		// mainContainer.classList.add('main-container','dwc-hide');
+
+		// this._mainDivContainer = mainContainer;
+
+		// //-------- creating thumbnails
+		// this._thumbnailsGallery = document.createElement("div");
+		// this._thumbnailsGallery.classList.add('thumbnailsList');
+
+		// //-------- creating preview section
+		// let bigPreview = document.createElement("div");
+		// bigPreview.classList.add('preview-section');
+
+		// this._previewImg = document.createElement('img');
+		// this._previewImg.classList.add('preview-img');
+		// this._previewImg.onclick = () => this.openModal();
+		// bigPreview.appendChild(this._previewImg);
+
+		// //-------- prev and next buttons
+		// let next = document.createElement('a');
+		// next.classList.add('arrow-button', 'preview-next');
+		// next.innerHTML = "&#10095;";
+		// next.onclick = () => this.changeImage(1);
+
+		// let prev = document.createElement('a');
+		// prev.classList.add('arrow-button', 'preview-prev');
+		// prev.innerHTML = "&#10094;";
+		// prev.onclick = () => this.changeImage(-1);
+
+		// bigPreview.appendChild(prev);
+		// bigPreview.appendChild(next);
+
+		// mainContainer.appendChild(bigPreview);
+		// mainContainer.appendChild(this._thumbnailsGallery);
+
+		// this._container.appendChild(mainContainer);
+
+		// container.appendChild(this._container);
+
+		// //--------- create modal
+
+		// this._modalContainer = document.createElement('div');
+		// this._modalContainer.classList.add('dwc-modal');
+
+		// let modalContent = document.createElement('div');
+		// modalContent.classList.add('dwc-modal-content');
+
+		// this._modalContentContainer = modalContent;
+
+		// //--------- create modal header
+		// let modalHeader = document.createElement('div');
+		// modalHeader.classList.add('dwc-modal-header');
+
+		// //--------- create pdf controls
+		// let pdfControlsContainer = document.createElement('div');
+
+		// pdfControlsContainer.classList.add('dwc-flex-container', 'dwc-pageinput-container', 'dwc-hide');
+
+		// let prevPdfPageIcon = document.createElement('i');
+		// prevPdfPageIcon.className = "header-icon ms-Icon ms-Icon--ChevronLeft";
+		// prevPdfPageIcon.addEventListener('click', () => this.changePdfPage(-1));
+
+		// pdfControlsContainer.appendChild(prevPdfPageIcon);
+
+		// let pdfPageNumberContainer = document.createElement('div');
+
+		// let pdfPageInput = document.createElement('input');
+		// pdfPageInput.value = '1';
+		// pdfPageInput.className = 'dwc-page-input';
+		// pdfPageInput.addEventListener('keypress', (e) => this.setPdfPage(e));
+
+		// pdfPageNumberContainer.appendChild(pdfPageInput);
+
+		// this._pdfPageInput = pdfPageInput;
+
+		// let totalPagesSpan = document.createElement('span');
+		// totalPagesSpan.innerHTML = " / 0";
+		// totalPagesSpan.className = 'dwc-page-span';
+
+		// pdfPageNumberContainer.appendChild(totalPagesSpan);
+
+		// this._pdfTotalPages = totalPagesSpan;
+
+		// pdfControlsContainer.appendChild(pdfPageNumberContainer);
+
+		// let nextPdfPageIcon = document.createElement('i');
+		// nextPdfPageIcon.className = "header-icon ms-Icon ms-Icon--ChevronRight";
+		// nextPdfPageIcon.addEventListener('click', () => this.changePdfPage(1));
+
+		// pdfControlsContainer.appendChild(nextPdfPageIcon);
+
+		// let zoomControlsContainer = document.createElement('div');
+		// zoomControlsContainer.className = 'dwc-zoom-container';
+
+		// let zoomText = document.createElement('span');
+		// zoomText.style.color = 'white';
+		// zoomText.innerHTML = 'Zoom: ';
+
+		// let plusIcon = document.createElement('i');
+		// plusIcon.className = "header-icon dwc-side-margin-4 ms-Icon ms-Icon--Add";
+		// plusIcon.addEventListener('click', () => this.zoomPdfPage(0.2));
+
+		// let minusIcon = document.createElement('i');
+		// minusIcon.className = "header-icon dwc-side-margin-4 ms-Icon ms-Icon--Remove";
+		// minusIcon.addEventListener('click', () => this.zoomPdfPage(-0.2));
+
+		// zoomControlsContainer.appendChild(zoomText);
+		// zoomControlsContainer.appendChild(plusIcon);
+		// zoomControlsContainer.appendChild(minusIcon);
+
+		// pdfControlsContainer.appendChild(zoomControlsContainer);
+
+		// this._pdfPageControlsContainer = pdfControlsContainer;
+
+		// //---------- create modal buttons
+		// let rightHeaderContainer = document.createElement('div');
+
+		// rightHeaderContainer.classList.add("header-icon-container");
+
+		// let downloadIcon = document.createElement('i');
+		// downloadIcon.className = "header-icon ms-Icon ms-Icon--Download";
+		// downloadIcon.addEventListener('click', this.downloadFile);
+
+		// rightHeaderContainer.appendChild(downloadIcon);
+
+		// let infoIcon = document.createElement('i');
+		// infoIcon.className = "header-icon ms-Icon ms-Icon--Info";
+		// infoIcon.addEventListener('click', this.toggleNoteColumn);
+
+		// rightHeaderContainer.appendChild(infoIcon);
+
+		// let closeIcon = document.createElement('i');
+		// closeIcon.className = "header-icon ms-Icon ms-Icon--ChromeClose";
+		// closeIcon.addEventListener('click', this.closeModal);
+
+		// rightHeaderContainer.appendChild(closeIcon);
+
+		// //--------- create modal header text
+		// let leftHeaderContainer = document.createElement('div');
+
+		// let headerText = document.createElement('h3');
+		// headerText.innerHTML = "0/10";
+		// this._modalHeaderText = headerText;
+
+		// leftHeaderContainer.appendChild(headerText);
+
+		// modalHeader.appendChild(leftHeaderContainer);
+		// modalHeader.appendChild(pdfControlsContainer);
+		// modalHeader.appendChild(rightHeaderContainer);
+
+		// modalContent.appendChild(modalHeader);
+
+		// //--------- create modal body
+
+		// let modalBody = document.createElement('div');
+		// modalBody.classList.add('dwc-modal-body');
+
+		// //--------- add prev/next buttons
+
+		// let nextImgModal = document.createElement('a');
+		// nextImgModal.classList.add('arrow-button', 'preview-next');
+		// nextImgModal.innerHTML = "&#10095;";
+		// nextImgModal.onclick = () => this.changeImage(1);
+
+		// let prevImgModal = document.createElement('a');
+		// prevImgModal.classList.add('arrow-button', 'preview-prev');
+		// prevImgModal.innerHTML = "&#10094;";
+		// prevImgModal.onclick = () => this.changeImage(-1);
+
+		// modalBody.appendChild(nextImgModal);
+		// modalBody.appendChild(prevImgModal);
+
+		// //--------- image container
+
+		// let imageViewerContainer = document.createElement('div');
+		// imageViewerContainer.className = 'dwc-flex-container';
+
+		// this._imageViewerContainer = imageViewerContainer;
+
+		// modalBody.appendChild(imageViewerContainer);
+
+		// let modalImageContainer = document.createElement('div');
+		// modalImageContainer.classList.add('dwc-modal-img-container');
+
+		// this._modalImage = document.createElement('img');
+		// this._modalImage.classList.add('dwc-modal-img');
+
+		// modalImageContainer.appendChild(this._modalImage);
+		// imageViewerContainer.appendChild(modalImageContainer);
+
+		// this._modalImageContainer = modalImageContainer;
+
+		// //-------- create preview note container
+
+		// let modalNoteTextContainer = document.createElement('div');
+		// modalNoteTextContainer.classList.add('dwc-modal-notetext-container', 'dwc-hide');
+
+		// let noteText = document.createElement('p');
+		// noteText.className = 'dwc-modal-notetext';
+		// modalNoteTextContainer.appendChild(noteText);
+
+		// this._noteText = noteText;
+		// this._noteTextContainer = modalNoteTextContainer;
+
+		// imageViewerContainer.appendChild(modalNoteTextContainer);
+
+		// //--------- create pdf viewer container
+
+		// let pdfViewerContainer = document.createElement('div');
+		// pdfViewerContainer.classList.add('dwc-hide');
+
+		// let canvasContainer = document.createElement('div');
+		// canvasContainer.className = 'dwc-pdf-canvas-container';
+		// canvasContainer.id = "canvas_container";
+
+		// this._pdfCanvas = document.createElement('canvas');
+		// this._pdfCanvas.id = "pdf_renderer";
+
+		// canvasContainer.appendChild(this._pdfCanvas);
+
+		// pdfViewerContainer.appendChild(canvasContainer);
+
+		// modalBody.appendChild(pdfViewerContainer);
+
+		// this._pdfViewerContainer = pdfViewerContainer;
+
+		// modalContent.appendChild(modalBody);
+		// this._modalContainer.appendChild(modalContent);
+
+		// document.body.appendChild(this._modalContainer);
+
+		// console.log("context", context);
+
+		// let curentRecord: ComponentFramework.EntityReference = {
+		// 	id: (<any>context).page.entityId,
+		// 	name: (<any>context).page.entityTypeName
+		// }
+
+		// console.log("curentRecord", curentRecord);
+
+		// const pdfScript = document.createElement('script');
+		// pdfScript.src = 'https://unpkg.com/pdfjs-dist@latest/build/pdf.min.js';
+
+		// document.body.appendChild(pdfScript);
+
+		// this.GetAttachments(curentRecord).then(result => this.CreateGallery(result));
 		//this.GetAttachmentsDemo();
 	}
 
-	// private GetAttachmentsDemo(): void {
+	private GetAttachmentsDemo(): void {
 
-	// 	for (let index = 0; index < 10; index++) {
+		for (let index = 0; index < 10; index++) {
 
-	// 		let item: Attachment = {
-	// 			id: index.toString(),
-	// 			mimeType: "image/jpeg",
-	// 			noteText: "Text for image number: " + index.toString(),
-	// 			title: "Title " + index.toString(),
-	// 			filename: "img" + index.toString() + ".jpeg",
-	// 			documentBody: index % 2 ? img1 : img2
-	// 		};
-	// 		this._notes.push(item);
-	// 	}
+			let item: Attachment = {
+				id: index.toString(),
+				mimeType: "image/jpeg",
+				noteText: "Text for image number: " + index.toString(),
+				title: "Title " + index.toString(),
+				filename: "img" + index.toString() + ".jpeg",
+				documentBody: index % 2 ? img1 : img2
+			};
+			//this._notes.push(item);
+		}
 
-	// 	let pdfItem: Attachment = {
-	// 		id: '10',
-	// 		mimeType: "application/pdf",
-	// 		noteText: "Text for image number: " + '10',
-	// 		title: "Title " + '10',
-	// 		filename: "pdf_10.pdf",
-	// 		documentBody: 'JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwog' +
-	// 			'IC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmoKPDwKICAvVHlwZSAvUGFnZXMKICAv' +
-	// 			'TWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0K' +
-	// 			'Pj4KZW5kb2JqCgozIDAgb2JqCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAg' +
-	// 			'L1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSIAogICAgPj4KICA+' +
-	// 			'PgogIC9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKICAvVHlwZSAvRm9u' +
-	// 			'dAogIC9TdWJ0eXBlIC9UeXBlMQogIC9CYXNlRm9udCAvVGltZXMtUm9tYW4KPj4KZW5kb2Jq' +
-	// 			'Cgo1IDAgb2JqICAlIHBhZ2UgY29udGVudAo8PAogIC9MZW5ndGggNDQKPj4Kc3RyZWFtCkJU' +
-	// 			'CjcwIDUwIFRECi9GMSAxMiBUZgooSGVsbG8sIHdvcmxkISkgVGoKRVQKZW5kc3RyZWFtCmVu' +
-	// 			'ZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4g' +
-	// 			'CjAwMDAwMDAwNzkgMDAwMDAgbiAKMDAwMDAwMDE3MyAwMDAwMCBuIAowMDAwMDAwMzAxIDAw' +
-	// 			'MDAwIG4gCjAwMDAwMDAzODAgMDAwMDAgbiAKdHJhaWxlcgo8PAogIC9TaXplIDYKICAvUm9v' +
-	// 			'dCAxIDAgUgo+PgpzdGFydHhyZWYKNDkyCiUlRU9G'
-	// 	};
+		// let pdfItem: Attachment = {
+		// 	id: '10',
+		// 	mimeType: "application/pdf",
+		// 	noteText: "Text for image number: " + '10',
+		// 	title: "Title " + '10',
+		// 	filename: "pdf_10.pdf",
+		// 	documentBody: 'JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwog' +
+		// 		'IC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmoKPDwKICAvVHlwZSAvUGFnZXMKICAv' +
+		// 		'TWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0K' +
+		// 		'Pj4KZW5kb2JqCgozIDAgb2JqCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAg' +
+		// 		'L1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSIAogICAgPj4KICA+' +
+		// 		'PgogIC9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmoKPDwKICAvVHlwZSAvRm9u' +
+		// 		'dAogIC9TdWJ0eXBlIC9UeXBlMQogIC9CYXNlRm9udCAvVGltZXMtUm9tYW4KPj4KZW5kb2Jq' +
+		// 		'Cgo1IDAgb2JqICAlIHBhZ2UgY29udGVudAo8PAogIC9MZW5ndGggNDQKPj4Kc3RyZWFtCkJU' +
+		// 		'CjcwIDUwIFRECi9GMSAxMiBUZgooSGVsbG8sIHdvcmxkISkgVGoKRVQKZW5kc3RyZWFtCmVu' +
+		// 		'ZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4g' +
+		// 		'CjAwMDAwMDAwNzkgMDAwMDAgbiAKMDAwMDAwMDE3MyAwMDAwMCBuIAowMDAwMDAwMzAxIDAw' +
+		// 		'MDAwIG4gCjAwMDAwMDAzODAgMDAwMDAgbiAKdHJhaWxlcgo8PAogIC9TaXplIDYKICAvUm9v' +
+		// 		'dCAxIDAgUgo+PgpzdGFydHhyZWYKNDkyCiUlRU9G'
+		// };
 
-	// 	let pdfItem2: Attachment = {
-	// 		id: '11',
-	// 		mimeType: "application/pdf",
-	// 		noteText: "Text for image number: " + '11',
-	// 		title: "Title " + '11',
-	// 		filename: "pdf_11.pdf",
-	// 		documentBody: pdf2
-	// 	};
-	// 	this._notes.push(pdfItem);
-	// 	this._notes.push(pdfItem2);
+		// let pdfItem2: Attachment = {
+		// 	id: '11',
+		// 	mimeType: "application/pdf",
+		// 	noteText: "Text for image number: " + '11',
+		// 	title: "Title " + '11',
+		// 	filename: "pdf_11.pdf",
+		// 	documentBody: pdf2
+		// };
+		// this._notes.push(pdfItem);
+		// this._notes.push(pdfItem2);
 
-	// 	this.CreateGallery(this._notes);
-	// }
+		//this.CreateGallery(this._notes);
+
+		this._mainProps = {
+			notes: this._notes,
+			loading: false
+		}; 
+
+		ReactDOM.render(
+			// Create the React component
+			React.createElement(
+				Preview,
+				this._mainProps
+			),
+			this._container
+		);
+	}
 
 
 	/**

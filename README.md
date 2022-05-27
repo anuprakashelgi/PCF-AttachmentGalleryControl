@@ -1,4 +1,3 @@
-[![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-single.svg)](https://vshymanskyy.github.io/StandWithUkraine)
 
 # PCF-AttachmentGalleryControl
 
